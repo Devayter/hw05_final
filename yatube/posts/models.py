@@ -29,14 +29,14 @@ class Follow(models.Model):
     user = models.ForeignKey(
         User,
         null=True,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         verbose_name='фоловер',
         related_name='follower'
     )
     author = models.ForeignKey(
         User,
         null=True,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         verbose_name='подписка',
         related_name='following'
     )
