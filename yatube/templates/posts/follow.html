@@ -9,8 +9,9 @@
   <div class="container py-5">
 
     {% include 'posts/includes/switcher.html' %}
-    
+
     <h1>Последние обновления избранных авторов</h1><br>
+    
     {% for post in page_obj %}
     
       {% include 'posts/includes/post_card.html' %}

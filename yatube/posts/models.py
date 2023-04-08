@@ -18,7 +18,7 @@ class Comment(models.Model):
         related_name='comments'
     )
     text = models.TextField('Текст комментария')
-    сreated = models.DateTimeField('Дата добавления', auto_now_add=True)
+    pub_date = models.DateTimeField('Дата публикации', auto_now_add=True)
 
     class Meta:
         verbose_name = 'Комментарий'
