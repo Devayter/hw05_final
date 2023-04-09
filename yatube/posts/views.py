@@ -1,6 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.cache import cache_page
+# from django.views.decorators.cache import cache_page
 
 from .forms import CommentForm, PostForm
 from .models import Comment, Follow, Group, Post, User
@@ -68,7 +68,7 @@ def profile_unfollow(request, username):
     )
 
 
-@cache_page(20, key_prefix='index_page')
+# @cache_page(20, key_prefix='index_page')
 def index(request):
     posts = Post.objects.select_related('group', 'author').all()
     page_obj = get_paginator_func(request, posts)
@@ -130,16 +130,21 @@ def post_detail(request, post_id):
 
 def profile(request, username):
     author = get_object_or_404(User, username=username)
+    user_follow = author.follower.select_related('user')
+    author_following = author.following.select_related('author')
+
     following = False
     if request.user.is_authenticated:
-        following = True if Follow.objects.filter(
+        following = Follow.objects.filter(
             user=request.user, author=author
-        ) else False
+        )
     posts = author.posts.select_related('group').all()
     page_obj = get_paginator_func(request, posts)
     context = {
         'author': author,
         'following': following,
+        'author_following': author_following,
+        'user_follow': user_follow,
         'page_obj': page_obj,
     }
     return render(request, 'posts/profile.html', context)

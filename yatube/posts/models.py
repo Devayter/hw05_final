@@ -24,6 +24,9 @@ class Comment(models.Model):
         verbose_name = 'Комментарий'
         verbose_name_plural = 'Комментарии'
 
+    def __str__(self):
+        return self.text[:15]
+
 
 class Follow(models.Model):
     user = models.ForeignKey(
@@ -40,6 +43,13 @@ class Follow(models.Model):
         verbose_name='подписка',
         related_name='following'
     )
+
+    class Meta:
+        verbose_name = 'Подписка'
+        verbose_name_plural = 'Подписки'
+
+    def __str__(self):
+        return f'пользователь {self.user} подписан на {self.author}'
 
 
 class Group(models.Model):

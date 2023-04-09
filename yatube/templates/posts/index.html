@@ -7,18 +7,17 @@
 {% block main %}
   <div class="container py-5">   
 
-    {% include 'posts/includes/switcher.html' %}  
+    {% include 'posts/includes/switcher.html' with index_flag=True %}  
     
     <h1>Последние обновления на сайте</h1><br>
     {% for post in page_obj %}
     
       {% include 'posts/includes/post_card.html' %}
 
-    {% if not forloop.last %}<hr>{% endif %}
-    {% endfor %}
+      {% if not forloop.last %}<hr>{% endif %}
+      {% endfor %}
 
     {% include 'posts/includes/paginator.html' %}
     
   </div>
-  
 {% endblock main %}
