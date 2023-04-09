@@ -29,6 +29,7 @@ def delete_comment(request, comment_id):
 
 @login_required
 def follow_index(request):
+    user = 
     posts = Post.objects.filter(author__following__user=request.user)
     page_obj = get_paginator_func(request, posts)
     context = {
