@@ -29,12 +29,10 @@ def delete_comment(request, comment_id):
 
 @login_required
 def follow_index(request):
-    user = 
-    posts = Post.objects.filter(author__following__user=request.user)
-    page_obj = get_paginator_func(request, posts)
-    context = {
-        'page_obj': page_obj,
-    }
+    posts = Post.objects.select_related('group', 'author').all()
+    follow_posts = posts.filter(author__following__user=request.user)
+    page_obj = get_paginator_func(request, follow_posts)
+    context = {'page_obj': page_obj}
     return render(request, 'posts/follow.html', context)
 
 
@@ -45,28 +43,20 @@ def profile_follow(request, username):
         user=request.user, author=author
     ) else False
     if author != request.user and not following:
-        Follow.objects.create(
+        Follow.objects.get_or_create(
             author=author,
             user=request.user
         )
-    return redirect(
-        'posts:profile',
-        author.username
-    )
+    return redirect('posts:profile', username)
 
 
 @login_required
 def profile_unfollow(request, username):
-    author = get_object_or_404(User, username=username)
-    if author != request.user:
-        Follow.objects.filter(
-            author=author,
-            user=request.user
-        ).delete()
-    return redirect(
-        'posts:profile',
-        author.username
-    )
+    if username != request.user:
+        get_object_or_404(Follow.objects.filter(
+            author__username=username
+        )).delete()
+    return redirect('posts:profile', username)
 
 
 # @cache_page(20, key_prefix='index_page')
