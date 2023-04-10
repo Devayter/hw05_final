@@ -1,6 +1,5 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
-# from django.views.decorators.cache import cache_page
 
 from .forms import CommentForm, PostForm
 from .models import Comment, Follow, Group, Post, User
@@ -59,7 +58,6 @@ def profile_unfollow(request, username):
     return redirect('posts:profile', username)
 
 
-# @cache_page(20, key_prefix='index_page')
 def index(request):
     posts = Post.objects.select_related('group', 'author').all()
     page_obj = get_paginator_func(request, posts)
@@ -108,7 +106,16 @@ def group_posts(request, slug):
 
 
 def post_detail(request, post_id):
-    post = get_object_or_404(Post, pk=post_id)
+    post = get_object_or_404(
+        Post.objects.select_related('author'),
+        id=post_id
+    )
+    comments = get_object_or_404(
+        Post.objects.select_related(
+            'author'
+        ).prefetch_related('comments__author'), id=post_id
+    )
+
     form = CommentForm(request.POST or None)
     comments = post.comments.select_related('author')
     context = {
@@ -125,10 +132,8 @@ def profile(request, username):
     author_following = author.following.select_related('author')
 
     following = False
-    if request.user.is_authenticated:
-        following = Follow.objects.filter(
-            user=request.user, author=author
-        )
+    following = (request.user.is_authenticated and request.user != author
+                 and Follow.objects.filter(user=request.user, author=author))
     posts = author.posts.select_related('group').all()
     page_obj = get_paginator_func(request, posts)
     context = {

@@ -1,10 +1,9 @@
+from django import forms
 from django.conf import settings
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, Client
+from django.test import Client, TestCase
 from django.urls import reverse
-from django import forms
-
 from posts.forms import PostForm
 from posts.models import Comment, Follow, Group, Post, User
 
@@ -13,9 +12,7 @@ class PostViewsTests(TestCase):
     '''Тест View приложения posts'''
     @classmethod
     def setUpClass(cls):
-        '''Создаем пользователей, объект класса Follow, картинку и
-        тестовый пост.
-        '''
+        '''Создаем пользователей, картинку и тестовый пост'''
         super().setUpClass()
         cls.small_gif = (
             b'\x47\x49\x46\x38\x39\x61\x02\x00'
@@ -31,8 +28,6 @@ class PostViewsTests(TestCase):
             content_type='image/gif'
         )
         cls.user = User.objects.create_user(username='user')
-        cls.user_follower = User.objects.create_user(username='follower')
-        cls.author_following = User.objects.create_user(username='following')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test_slug',
@@ -49,17 +44,11 @@ class PostViewsTests(TestCase):
             author=cls.user,
             text='Тестовый комментарий'
         )
-        cls.folow = Follow.objects.create(
-            user=cls.user_follower,
-            author=cls.author_following
-        )
 
     def setUp(self):
         '''Создаем авторизованный клиент'''
         self.user_client = Client()
         self.user_client.force_login(self.user)
-        self.user_follower_client = Client()
-        self.user_follower_client.force_login(self.user_follower)
         cache.clear()
 
     def check_context(self, response, bool=False):
@@ -160,21 +149,20 @@ class PostViewsTests(TestCase):
         post_in_old_group = response.context['page_obj'].object_list
         self.assertIn(self.post, post_in_old_group)
 
-    def test_followers_follow_index_contains_following_posts(self):
-        '''Новая записть автора появляется в ленте тех, кто на него
-        подписан и не появляется в ленте тех, кто на него не подписан.
-        '''
-        Post.objects.all().delete()
-        new_author_post = Post.objects.create(
-            author=self.author_following,
-            text='Новый пост избранного автора'
+    def test_cache_works_correct(self):
+        response_before_delete = self.client.get(reverse('posts:index'))
+        Post.objects.all().delete
+        response_after_delete = self.client.get(reverse('posts:index'))
+        self.assertEqual(
+            response_before_delete.content,
+            response_after_delete.content
         )
-        response = self.user_follower_client.get(reverse('posts:follow_index'))
-        follower_follow_index_posts = response.context['page_obj'].object_list
-        self.assertIn(new_author_post, follower_follow_index_posts)
-        response = self.user_client.get(reverse('posts:follow_index'))
-        user_follow_index_posts = response.context['page_obj'].object_list
-        self.assertNotIn(new_author_post, user_follow_index_posts)
+        cache.clear()
+        response_after_cache_cleared = self.client.get(reverse('posts:index'))
+        self.assertNotEqual(
+            response_before_delete,
+            response_after_cache_cleared
+        )
 
 
 class PaginatorViewTest(TestCase):
@@ -190,10 +178,17 @@ class PaginatorViewTest(TestCase):
         cls.user_paginator = (
             User.objects.create_user(username='user_paginator')
         )
+        cls.user_follower = User.objects.create_user(username='follower')
+        cls.user_follower_client = Client()
+        cls.user_follower_client.force_login(cls.user_follower)
         cls.group_paginator = Group.objects.create(
             title='Тестовая группа',
             slug='test_slug',
             description='Тестовое описание',
+        )
+        cls.follow = Follow.objects.create(
+            user=cls.user_follower,
+            author=cls.user_paginator
         )
         posts_for_paginator_test = [
             Post(
@@ -206,6 +201,7 @@ class PaginatorViewTest(TestCase):
 
         cls.REVERSE_PAGES_NAMES_LIST_PAGINATOR = (
             ('posts:index', None),
+            ('posts:follow_index', None),
             ('posts:group_list', (cls.group_paginator.slug,)),
             ('posts:profile', (cls.user_paginator.username,)),
         )
@@ -223,7 +219,7 @@ class PaginatorViewTest(TestCase):
             with self.subTest(address=reverse(address, args=args)):
                 for page, amount in self.AMOUNT_OF_POSTS_PER_PAGE:
                     with self.subTest(page):
-                        response = self.client.get(
+                        response = self.user_follower_client.get(
                             reverse(address, args=args) + page
                         )
                         self.assertEqual(

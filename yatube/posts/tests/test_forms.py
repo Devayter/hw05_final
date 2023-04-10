@@ -1,16 +1,12 @@
 import shutil
 import tempfile
-
 from http import HTTPStatus
 
 from django.conf import settings
-from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, Client, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-
 from posts.models import Comment, Follow, Group, Post, User
-
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
@@ -36,10 +32,9 @@ class PostViewsTests(TestCase):
             group=cls.group,
             text='Текст до редактирования',
         )
-        cls.comment = Comment.objects.create(
-            post=cls.post,
-            author=cls.user,
-            text='Тестовый комментарий'
+        cls.follow = Follow.objects.create(
+            user=cls.user_follower,
+            author=cls.author_following
         )
 
     @classmethod
@@ -56,6 +51,8 @@ class PostViewsTests(TestCase):
         self.author_client.force_login(self.author)
         self.user_client = Client()
         self.user_client.force_login(self.user)
+        self.user_follower_client = Client()
+        self.user_follower_client.force_login(self.user_follower)
 
     def test_post_create_form_add_new_post(self):
         '''При отправке валидной формы со страницы создания поста добавляется
@@ -174,15 +171,22 @@ class PostViewsTests(TestCase):
         '''
         Comment.objects.all().delete()
         comments_count_before_add_comment = Comment.objects.count()
-
+        comment_form_data = {'text': 'Коментарий авторизованного пользователя'}
         self.user_client.post(
             reverse('posts:add_comment', args=(self.post.id,)),
-            data={'text': 'Коментарий авторизованного пользователя'}
+            data=comment_form_data
         )
         self.assertEqual(
             Comment.objects.count(),
             comments_count_before_add_comment + 1
         )
+        response = self.client.get(
+            reverse('posts:post_detail', args=(self.post.id,)),
+        )
+        comment = response.context['comments'][0]
+        self.assertEqual(comment.text, comment_form_data['text'])
+        self.assertEqual(comment.author, self.user)
+        self.assertEqual(comment.post, self.post)
 
     def test_guest_user_is_not_able_to_add_new_comment(self):
         '''Гостевого пользователя не способен добавлять новые комментарии'''
@@ -192,49 +196,124 @@ class PostViewsTests(TestCase):
             reverse('posts:add_comment', args=(self.post.id,)),
             data={'text': 'Комментарий неавторизованного пользователя'}
         )
-        comments_count_after_added_comment = Comment.objects.count()
         self.assertEqual(
-            comments_count_before_add_comment,
-            comments_count_after_added_comment
+            Comment.objects.count(),
+            comments_count_before_add_comment
+        )
+
+    def test_delete_comment_button_works_correct(self):
+        '''Кнопка удаление комментариев работает корректно'''
+        comment = Comment.objects.create(
+            post=self.post,
+            author=self.user,
+            text='Комментария для удаления'
+        )
+        comments_count_before_delete_comment = Comment.objects.count()
+        self.user_client.get(
+            reverse('posts:delete_comment', args=(comment.id,)))
+        self.assertEqual(
+            Comment.objects.count(),
+            comments_count_before_delete_comment - 1
         )
 
     def test_follow_for_user_works_correct(self):
+        # не получается достать автора и пользователя из подписки
+        # сделал проверку на подписку таким образом, пни, пожалуйста, в каком
+        # направлении думать
         '''Авторизованный пользователь может подписываться на других
-        пользователей и удалять их из подписок'''
+        пользователей.
+        '''
         Follow.objects.all().delete()
-        new_folow = Follow.objects.create(
+        follow_count_before_follow = Follow.objects.all().count()
+        self.user_client.get(
+            reverse('posts:profile_follow', args=(self.author_following,))
+        )
+        self.assertTrue(
+            Follow.objects.filter(user=self.user, author=self.author_following)
+        )
+        self.assertEqual(
+            Follow.objects.all().count(),
+            follow_count_before_follow + 1
+        )
+
+    def test_unfollow_for_user_works_correct(self):
+        '''Авторизованный пользователь может отписываться от других
+        пользователей.
+        '''
+        Follow.objects.all().delete()
+        Follow.objects.create(
             user=self.user_follower,
             author=self.author_following
         )
-        self.assertEqual(new_folow.author, self.author_following)
-        follow_count_before_delete = Follow.objects.filter(
-            author=self.author_following
-        ).count()
-        Follow.objects.filter(
-            user=self.user_follower, author=self.author_following
-        ).delete()
-        follow_count_after_delete = Follow.objects.filter(
-            author=self.author_following
-        ).count()
+        follow_count_before_delete = Follow.objects.all().count()
+        self.user_client.get(
+            reverse('posts:profile_unfollow', args=(self.author_following,)))
         self.assertEqual(
-            follow_count_before_delete, follow_count_after_delete + 1
+            Follow.objects.all().count(), follow_count_before_delete - 1
         )
 
-    def test_cache_works_correct(self):
-        test_cache_form_data = {
-            'group': self.group.id,
-            'text': 'Тест кеша',
-        }
-        self.author_client.post(
-            reverse('posts:post_create'),
-            data=test_cache_form_data,
-            follow=True
+    def test_follow_cannot_resubscribe(self):
+        '''Отсутствует возможность подписаться повторно'''
+        Follow.objects.all().delete()
+        self.user_client.get(
+            reverse('posts:profile_follow', args=(self.author_following,))
         )
-        Post.objects.all().delete
-        response = self.client.get(reverse('posts:index'))
-        self.assertIsNotNone(response.context)
-        response = self.client.get(reverse('posts:index'))
-        self.assertIsNone(response.context)
-        cache.clear()
-        response = self.client.get(reverse('posts:index'))
-        self.assertIsNotNone(response.context)
+        follow_count_before_second_follow = Follow.objects.all().count()
+        self.user_client.get(
+            reverse('posts:profile_follow', args=(self.author_following,))
+        )
+        self.assertEqual(
+            follow_count_before_second_follow,
+            Follow.objects.all().count()
+        )
+
+    def test_follow_author_cannor_follow_himself(self):
+        '''Отсутствует возможность автора подписаться на самого себя'''
+        Follow.objects.all().delete()
+        self.author_client.get(
+            reverse('posts:profile_follow', args=(self.author,))
+        )
+        follow_count_after_follow = Follow.objects.all().count()
+        self.user_client.get(
+            reverse('posts:profile_follow', args=(self.author,))
+        )
+        self.assertEqual(follow_count_after_follow, 0)
+
+    def test_followers_follow_index_contains_following_posts(self):
+        '''Новая записть автора появляется в ленте тех, кто на него
+        подписан и не появляется в ленте тех, кто на него не подписан.
+        '''
+        # "У нас есть функция для проверки контекста - используем её для
+        # проверки того, что у подписчика отображается пост, т.е. всего лишь
+        # нужно сделать запрос и отправить его в функцию."
+        #
+        # Перенес этот тест сюда из теста вью, так как там невозможно сравнить
+        # было переданную форму в отдельной функции(в функции у нас идет
+        # сравнение с данными из сетапкласса, тогда как в тесте follow у нас и
+        # автор другой, и пост так же новый, которые создавались
+        # конкретно под этот тест)
+        Post.objects.all().delete()
+        new_author_post = Post.objects.create(
+            author=self.author_following,
+            text='Новый пост избранного автора'
+        )
+        response = self.user_follower_client.get(reverse('posts:follow_index'))
+        follower_follow_index_posts = response.context['page_obj'].object_list
+        len_follow_index_post_after_new_post = len(follower_follow_index_posts)
+        self.assertEqual(len_follow_index_post_after_new_post, 1)
+        self.assertIn(new_author_post, follower_follow_index_posts)
+
+    def test_followers_follow_index_contains_following_posts(self):
+        '''Новая записть автора не появляется в ленте тех, кто на него
+        не подписан.
+        '''
+        Post.objects.all().delete()
+        new_author_post = Post.objects.create(
+            author=self.author_following,
+            text='Новый пост избранного автора'
+        )
+        response = self.user_client.get(reverse('posts:follow_index'))
+        user_follow_index_posts = response.context['page_obj'].object_list
+        len_follow_index_post_after_new_post = len(user_follow_index_posts)
+        self.assertEqual(len_follow_index_post_after_new_post, 0)
+        self.assertNotIn(new_author_post, user_follow_index_posts)

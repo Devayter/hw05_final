@@ -1,11 +1,13 @@
 {% extends 'base.html' %}
+{% load cache %}
 
 {% block title %}
   Последние обновления на сайте
 {% endblock title %}
 
 {% block main %}
-  <div class="container py-5">   
+{% cache 20 index_page %}
+  <div class="container py-5">
 
     {% include 'posts/includes/switcher.html' with index_flag=True %}  
     
@@ -15,9 +17,12 @@
       {% include 'posts/includes/post_card.html' %}
 
       {% if not forloop.last %}<hr>{% endif %}
-      {% endfor %}
+      
+    {% endfor %}
 
     {% include 'posts/includes/paginator.html' %}
     
   </div>
+{% endcache %}
 {% endblock main %}
+

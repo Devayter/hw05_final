@@ -1,9 +1,7 @@
 from http import HTTPStatus
 
-from django.core.cache import cache
-from django.test import TestCase, Client
+from django.test import Client, TestCase
 from django.urls import reverse
-
 from posts.models import Group, Post, User
 
 
@@ -16,6 +14,7 @@ class PostURLTests(TestCase):
         super().setUpClass()
         cls.user = User.objects.create_user(username='user')
         cls.author = User.objects.create_user(username='author')
+        cls.author_following = User.objects.create_user(username='following')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test_slug',
@@ -28,8 +27,11 @@ class PostURLTests(TestCase):
         )
 
         cls.reverse_names_tuple = (
+            ('posts:add_comment', (cls.post.id,)),
             ('posts:index', None),
             ('posts:follow_index', None),
+            ('posts:profile_follow', (cls.author_following,)),
+            ('posts:profile_unfollow', (cls.author_following,)),
             ('posts:group_list', (cls.group.slug,)),
             ('posts:post_create', None),
             ('posts:profile', (cls.user,)),
@@ -37,19 +39,33 @@ class PostURLTests(TestCase):
             ('posts:post_detail', (cls.post.id,))
         )
 
+        cls.post_edit_add_comment_list = [
+            'posts:add_comment',
+            'posts:post_edit'
+        ]
+        cls.follow_list = [
+            'posts:profile_follow',
+            'posts:profile_unfollow'
+        ]
+
     def setUp(self):
         '''Создаем клиент для пользователя и автора и авторизовываем их'''
         self.user_client = Client()
         self.user_client.force_login(self.user)
         self.author_client = Client()
         self.author_client.force_login(self.author)
-        cache.clear()
 
     def test_urls_use_correct_reverse_names(self):
         '''Url адреса равны адресам, полученным через reverse'''
         reverse_names_urls_tuple = (
             ('posts:index', None, '/'),
             ('posts:follow_index', None, '/follow/'),
+            ('posts:profile_follow',
+             (self.author_following,),
+             f'/profile/{self.author_following}/follow/'),
+            ('posts:profile_unfollow',
+             (self.author_following,),
+             f'/profile/{self.author_following}/unfollow/'),
             ('posts:add_comment',
              (self.post.id,),
              f'/posts/{self.post.id}/comment/'
@@ -75,20 +91,55 @@ class PostURLTests(TestCase):
                 self.assertEqual(reverse(name, args=args), url)
 
     def test_urls_exist_at_desired_location_for_author(self):
-        '''Для автора доступны все страницы'''
-        for name, args in self.reverse_names_tuple:
-            with self.subTest(address=reverse(name, args=args)):
-                response = self.author_client.get(reverse(name, args=args))
-
-                self.assertEqual(response.status_code, HTTPStatus.OK)
-
-    def test_urls_exist_at_desired_location_for_user(self):
-        '''Для пользователя доступны все страницы, кроме post_edit.
-        Со страницы post_edit происходит redirect на post_detail.
+        '''Для автора доступны все страницы. После Добавления комментария,
+        подписки и отписки происходит переадресация на профиль и на подробную
+        информацию о посте(по факту пользователь остается на той же
+        странице).
         '''
         for name, args in self.reverse_names_tuple:
             with self.subTest(address=reverse(name, args=args)):
-                if name == 'posts:post_edit':
+                if name in self.follow_list:
+                    response = self.author_client.get(
+                        reverse(name, args=args),
+                        follow=True
+                    )
+                    self.assertRedirects(
+                        response,
+                        reverse('posts:profile', args=args)
+                    )
+                elif name == 'posts:add_comment':
+                    response = self.author_client.get(
+                        reverse(name, args=args),
+                        follow=True
+                    )
+                    self.assertRedirects(
+                        response,
+                        reverse('posts:post_detail', args=args)
+                    )
+                else:
+                    response = self.author_client.get(reverse(name, args=args))
+
+                    self.assertEqual(response.status_code, HTTPStatus.OK)
+
+    def test_urls_exist_at_desired_location_for_user(self):
+        '''Для пользователя доступны все страницы, кроме post_edit.
+        Со страницы post_edit происходит redirect на post_detail. После
+        Добавления комментария, подписки и отписки происходит переадресация на
+        профиль и на подробную информацию о посте(по факту пользователь
+        остается на той же странице).
+        '''
+        for name, args in self.reverse_names_tuple:
+            with self.subTest(address=reverse(name, args=args)):
+                if name in self.follow_list:
+                    response = self.user_client.get(
+                        reverse(name, args=args),
+                        follow=True
+                    )
+                    self.assertRedirects(
+                        response,
+                        reverse('posts:profile', args=args)
+                    )
+                elif name in self.post_edit_add_comment_list:
                     response = self.user_client.get(
                         reverse(name, args=args),
                         follow=True
@@ -104,13 +155,16 @@ class PostURLTests(TestCase):
     def test_urls_exist_at_desired_location_for_guest_user(self):
         '''Для неавторизованного пользователя доступны все страницы, кроме
         post_edit, post_create и follow-index. Со страницы post_edit происходит
-        redirect на post_detail, а с post_create и follow_index
-        на сраницу авторизации.
+        redirect на post_detail, а с post_create, follow_index, add_coment
+        profile_follow и profile_unfollow на сраницу авторизации.
         '''
         names_list = [
+            'posts:add_comment',
+            'posts:follow_index',
+            'posts:profile_follow',
+            'posts:profile_unfollow',
             'posts:post_edit',
             'posts:post_create',
-            'posts:follow_index'
         ]
         for name, args in self.reverse_names_tuple:
             with self.subTest(address=reverse(name, args=args)):
