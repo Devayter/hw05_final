@@ -77,7 +77,6 @@ def post_create(request):
     return redirect('posts:profile', request.user.username)
 
 
-
 @login_required
 def post_edit(request, post_id):
 
