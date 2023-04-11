@@ -41,7 +41,7 @@ def profile_follow(request, username):
     following = True if Follow.objects.filter(
         user=request.user, author=author
     ) else False
-    if not following:
+    if author != request.user and not following:
         Follow.objects.get_or_create(
             author=author,
             user=request.user
