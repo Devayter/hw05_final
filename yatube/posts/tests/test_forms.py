@@ -32,10 +32,6 @@ class PostViewsTests(TestCase):
             group=cls.group,
             text='Текст до редактирования',
         )
-        cls.follow = Follow.objects.create(
-            user=cls.user_follower,
-            author=cls.author_following
-        )
 
     @classmethod
     def tearDownClass(cls):
@@ -180,10 +176,7 @@ class PostViewsTests(TestCase):
             Comment.objects.count(),
             comments_count_before_add_comment + 1
         )
-        response = self.client.get(
-            reverse('posts:post_detail', args=(self.post.id,)),
-        )
-        comment = response.context['comments'][0]
+        comment = Comment.objects.first()
         self.assertEqual(comment.text, comment_form_data['text'])
         self.assertEqual(comment.author, self.user)
         self.assertEqual(comment.post, self.post)
@@ -217,24 +210,20 @@ class PostViewsTests(TestCase):
         )
 
     def test_follow_for_user_works_correct(self):
-        # не получается достать автора и пользователя из подписки
-        # сделал проверку на подписку таким образом, пни, пожалуйста, в каком
-        # направлении думать
         '''Авторизованный пользователь может подписываться на других
         пользователей.
         '''
         Follow.objects.all().delete()
-        follow_count_before_follow = Follow.objects.all().count()
         self.user_client.get(
             reverse('posts:profile_follow', args=(self.author_following,))
         )
         self.assertTrue(
             Follow.objects.filter(user=self.user, author=self.author_following)
         )
-        self.assertEqual(
-            Follow.objects.all().count(),
-            follow_count_before_follow + 1
-        )
+        user = Follow.objects.first().user
+        author = Follow.objects.first().author
+        self.assertEqual(user, self.user)
+        self.assertEqual(author, self.author_following)
 
     def test_unfollow_for_user_works_correct(self):
         '''Авторизованный пользователь может отписываться от других
@@ -246,7 +235,7 @@ class PostViewsTests(TestCase):
             author=self.author_following
         )
         follow_count_before_delete = Follow.objects.all().count()
-        self.user_client.get(
+        self.user_follower_client.get(
             reverse('posts:profile_unfollow', args=(self.author_following,)))
         self.assertEqual(
             Follow.objects.all().count(), follow_count_before_delete - 1
@@ -274,46 +263,4 @@ class PostViewsTests(TestCase):
             reverse('posts:profile_follow', args=(self.author,))
         )
         follow_count_after_follow = Follow.objects.all().count()
-        self.user_client.get(
-            reverse('posts:profile_follow', args=(self.author,))
-        )
         self.assertEqual(follow_count_after_follow, 0)
-
-    def test_followers_follow_index_contains_following_posts(self):
-        '''Новая записть автора появляется в ленте тех, кто на него
-        подписан и не появляется в ленте тех, кто на него не подписан.
-        '''
-        # "У нас есть функция для проверки контекста - используем её для
-        # проверки того, что у подписчика отображается пост, т.е. всего лишь
-        # нужно сделать запрос и отправить его в функцию."
-        #
-        # Перенес этот тест сюда из теста вью, так как там невозможно сравнить
-        # было переданную форму в отдельной функции(в функции у нас идет
-        # сравнение с данными из сетапкласса, тогда как в тесте follow у нас и
-        # автор другой, и пост так же новый, которые создавались
-        # конкретно под этот тест)
-        Post.objects.all().delete()
-        new_author_post = Post.objects.create(
-            author=self.author_following,
-            text='Новый пост избранного автора'
-        )
-        response = self.user_follower_client.get(reverse('posts:follow_index'))
-        follower_follow_index_posts = response.context['page_obj'].object_list
-        len_follow_index_post_after_new_post = len(follower_follow_index_posts)
-        self.assertEqual(len_follow_index_post_after_new_post, 1)
-        self.assertIn(new_author_post, follower_follow_index_posts)
-
-    def test_followers_follow_index_contains_following_posts(self):
-        '''Новая записть автора не появляется в ленте тех, кто на него
-        не подписан.
-        '''
-        Post.objects.all().delete()
-        new_author_post = Post.objects.create(
-            author=self.author_following,
-            text='Новый пост избранного автора'
-        )
-        response = self.user_client.get(reverse('posts:follow_index'))
-        user_follow_index_posts = response.context['page_obj'].object_list
-        len_follow_index_post_after_new_post = len(user_follow_index_posts)
-        self.assertEqual(len_follow_index_post_after_new_post, 0)
-        self.assertNotIn(new_author_post, user_follow_index_posts)

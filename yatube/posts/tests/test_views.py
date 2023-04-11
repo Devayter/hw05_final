@@ -4,6 +4,7 @@ from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
+
 from posts.forms import PostForm
 from posts.models import Comment, Follow, Group, Post, User
 
@@ -28,6 +29,8 @@ class PostViewsTests(TestCase):
             content_type='image/gif'
         )
         cls.user = User.objects.create_user(username='user')
+        cls.user_follower = User.objects.create_user(username='follower')
+        cls.author_following = User.objects.create_user(username='following')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test_slug',
@@ -44,12 +47,17 @@ class PostViewsTests(TestCase):
             author=cls.user,
             text='Тестовый комментарий'
         )
+        cls.follow = Follow.objects.create(
+            user=cls.user_follower,
+            author=cls.author_following
+        )
 
     def setUp(self):
         '''Создаем авторизованный клиент'''
         self.user_client = Client()
         self.user_client.force_login(self.user)
-        cache.clear()
+        self.user_follower_client = Client()
+        self.user_follower_client.force_login(self.user_follower)
 
     def check_context(self, response, bool=False):
         '''Функция для использования в тестах для проверки переданных в
@@ -163,6 +171,30 @@ class PostViewsTests(TestCase):
             response_before_delete,
             response_after_cache_cleared
         )
+
+    def test_followers_follow_index_contains_following_posts(self):
+        '''Новая записть автора появляется в ленте тех, кто на него
+        подписан.
+        '''
+        Post.objects.all().delete()
+        new_authors_post = Post.objects.create(
+            author=self.author_following,
+            text='Новый пост избранного автора'
+        )
+        response = self.user_follower_client.get(reverse('posts:follow_index'))
+        follower_follow_index_posts = response.context['page_obj'].object_list
+        len_follow_index_post_after_new_post = len(follower_follow_index_posts)
+        self.assertEqual(len_follow_index_post_after_new_post, 1)
+        self.assertIn(new_authors_post, follower_follow_index_posts)
+
+    def test_not_followers_follow_index_doesnt_contain_following_posts(self):
+        '''Новая записть автора не появляется в ленте тех, кто на него
+        не подписан.
+        '''
+        response = self.user_client.get(reverse('posts:follow_index'))
+        user_follow_index_posts = response.context['page_obj'].object_list
+        len_follow_index_post_after_new_post = len(user_follow_index_posts)
+        self.assertEqual(len_follow_index_post_after_new_post, 0)
 
 
 class PaginatorViewTest(TestCase):

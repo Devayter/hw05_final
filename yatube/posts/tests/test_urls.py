@@ -2,7 +2,8 @@ from http import HTTPStatus
 
 from django.test import Client, TestCase
 from django.urls import reverse
-from posts.models import Group, Post, User
+
+from posts.models import Follow, Group, Post, User
 
 
 class PostURLTests(TestCase):
@@ -91,14 +92,16 @@ class PostURLTests(TestCase):
                 self.assertEqual(reverse(name, args=args), url)
 
     def test_urls_exist_at_desired_location_for_author(self):
-        '''Для автора доступны все страницы. После Добавления комментария,
-        подписки и отписки происходит переадресация на профиль и на подробную
-        информацию о посте(по факту пользователь остается на той же
-        странице).
+        '''Для автора доступны все страницы. После Добавления комментария
+        происходит переадресация на подробную информацию о посте. После
+        подписки и отписки происходит переадресация на страницу профиля (по
+        факту пользователь остается на той же странице). При повторной отписке
+        или попытке отписаться при отсутствующей подписке произойдет
+        переадресация на страницу 404.
         '''
         for name, args in self.reverse_names_tuple:
             with self.subTest(address=reverse(name, args=args)):
-                if name in self.follow_list:
+                if name == 'posts:profile_follow':
                     response = self.author_client.get(
                         reverse(name, args=args),
                         follow=True
@@ -106,6 +109,23 @@ class PostURLTests(TestCase):
                     self.assertRedirects(
                         response,
                         reverse('posts:profile', args=args)
+                    )
+                elif name == 'posts:profile_unfollow':
+                    response = self.author_client.get(
+                        reverse(name, args=args),
+                        follow=True
+                    )
+                    self.assertRedirects(
+                        response,
+                        reverse('posts:profile', args=args)
+                    )
+                    Follow.objects.all().delete()
+                    response = self.author_client.get(
+                        reverse(name, args=args),
+                        follow=True
+                    )
+                    self.assertEqual(
+                        response.status_code, HTTPStatus.NOT_FOUND
                     )
                 elif name == 'posts:add_comment':
                     response = self.author_client.get(

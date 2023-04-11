@@ -28,9 +28,10 @@ def delete_comment(request, comment_id):
 
 @login_required
 def follow_index(request):
-    posts = Post.objects.select_related('group', 'author').all()
-    follow_posts = posts.filter(author__following__user=request.user)
-    page_obj = get_paginator_func(request, follow_posts)
+    posts = Post.objects.select_related('group', 'author').all().filter(
+        author__following__user=request.user
+    )
+    page_obj = get_paginator_func(request, posts)
     context = {'page_obj': page_obj}
     return render(request, 'posts/follow.html', context)
 
@@ -38,10 +39,7 @@ def follow_index(request):
 @login_required
 def profile_follow(request, username):
     author = get_object_or_404(User, username=username)
-    following = True if Follow.objects.filter(
-        user=request.user, author=author
-    ) else False
-    if author != request.user and not following:
+    if author != request.user:
         Follow.objects.get_or_create(
             author=author,
             user=request.user
@@ -51,10 +49,11 @@ def profile_follow(request, username):
 
 @login_required
 def profile_unfollow(request, username):
-    if username != request.user:
-        get_object_or_404(Follow.objects.filter(
-            author__username=username
-        )).delete()
+    author = get_object_or_404(User, username=username)
+    get_object_or_404(Follow.objects.filter(
+        user=request.user,
+        author=author
+    )).delete()
     return redirect('posts:profile', username)
 
 
@@ -107,40 +106,27 @@ def group_posts(request, slug):
 
 def post_detail(request, post_id):
     post = get_object_or_404(
-        Post.objects.select_related('author'),
+        Post.objects.prefetch_related('comments__author'),
         id=post_id
     )
-    comments = get_object_or_404(
-        Post.objects.select_related(
-            'author'
-        ).prefetch_related('comments__author'), id=post_id
-    )
-
     form = CommentForm(request.POST or None)
-    comments = post.comments.select_related('author')
     context = {
         'post': post,
         'form': form,
-        'comments': comments,
+        'comments': post.comments.all(),
     }
     return render(request, 'posts/post_detail.html', context)
 
 
 def profile(request, username):
     author = get_object_or_404(User, username=username)
-    user_follow = author.follower.select_related('user')
-    author_following = author.following.select_related('author')
-
-    following = False
     following = (request.user.is_authenticated and request.user != author
-                 and Follow.objects.filter(user=request.user, author=author))
+                 and author.following.filter(user=request.user, author=author))
     posts = author.posts.select_related('group').all()
     page_obj = get_paginator_func(request, posts)
     context = {
         'author': author,
         'following': following,
-        'author_following': author_following,
-        'user_follow': user_follow,
         'page_obj': page_obj,
     }
     return render(request, 'posts/profile.html', context)

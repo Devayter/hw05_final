@@ -42,7 +42,6 @@
         <img src="{{ im.url }}" width="{{ im.width }}" height="{{ im.height }}">
       {% endthumbnail %}
       <p>{{ post.text|linebreaks }}<br></p> 
-
       {% if request.user.id == post.author.id %}
             <a class="btn btn-primary" href="{% url 'posts:post_edit' post.id %}">
               редактировать запись
