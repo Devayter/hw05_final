@@ -49,7 +49,7 @@ class PostViewsTests(TestCase):
         )
         cls.follow = Follow.objects.create(
             user=cls.user_follower,
-            author=cls.author_following
+            author=cls.user
         )
 
     def setUp(self):
@@ -176,25 +176,15 @@ class PostViewsTests(TestCase):
         '''Новая записть автора появляется в ленте тех, кто на него
         подписан.
         '''
-        Post.objects.all().delete()
-        new_authors_post = Post.objects.create(
-            author=self.author_following,
-            text='Новый пост избранного автора'
-        )
         response = self.user_follower_client.get(reverse('posts:follow_index'))
-        follower_follow_index_posts = response.context['page_obj'].object_list
-        len_follow_index_post_after_new_post = len(follower_follow_index_posts)
-        self.assertEqual(len_follow_index_post_after_new_post, 1)
-        self.assertIn(new_authors_post, follower_follow_index_posts)
+        PostViewsTests.check_context(self, response)
 
     def test_not_followers_follow_index_doesnt_contain_following_posts(self):
         '''Новая записть автора не появляется в ленте тех, кто на него
         не подписан.
         '''
         response = self.user_client.get(reverse('posts:follow_index'))
-        user_follow_index_posts = response.context['page_obj'].object_list
-        len_follow_index_post_after_new_post = len(user_follow_index_posts)
-        self.assertEqual(len_follow_index_post_after_new_post, 0)
+        self.assertEqual(len(response.context['page_obj'].object_list), 0)
 
 
 class PaginatorViewTest(TestCase):

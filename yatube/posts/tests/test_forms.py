@@ -214,16 +214,21 @@ class PostViewsTests(TestCase):
         пользователей.
         '''
         Follow.objects.all().delete()
+        follow_count_before_follow = Follow.objects.all().count()
         self.user_client.get(
             reverse('posts:profile_follow', args=(self.author_following,))
         )
-        self.assertTrue(
-            Follow.objects.filter(user=self.user, author=self.author_following)
-        )
+        # "223 и 224 достаем 2 раза подписку, нужно достать и записать в
+        # переменную, а в ассертах использовать переменную"
+        # разве это не то, что требуется?
         user = Follow.objects.first().user
         author = Follow.objects.first().author
         self.assertEqual(user, self.user)
         self.assertEqual(author, self.author_following)
+        self.assertEqual(
+            Follow.objects.all().count(),
+            follow_count_before_follow + 1
+        )
 
     def test_unfollow_for_user_works_correct(self):
         '''Авторизованный пользователь может отписываться от других

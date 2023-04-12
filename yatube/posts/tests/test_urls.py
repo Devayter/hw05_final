@@ -15,7 +15,6 @@ class PostURLTests(TestCase):
         super().setUpClass()
         cls.user = User.objects.create_user(username='user')
         cls.author = User.objects.create_user(username='author')
-        cls.author_following = User.objects.create_user(username='following')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test_slug',
@@ -31,8 +30,8 @@ class PostURLTests(TestCase):
             ('posts:add_comment', (cls.post.id,)),
             ('posts:index', None),
             ('posts:follow_index', None),
-            ('posts:profile_follow', (cls.author_following,)),
-            ('posts:profile_unfollow', (cls.author_following,)),
+            ('posts:profile_follow', (cls.author,)),
+            ('posts:profile_unfollow', (cls.author,)),
             ('posts:group_list', (cls.group.slug,)),
             ('posts:post_create', None),
             ('posts:profile', (cls.user,)),
@@ -62,11 +61,11 @@ class PostURLTests(TestCase):
             ('posts:index', None, '/'),
             ('posts:follow_index', None, '/follow/'),
             ('posts:profile_follow',
-             (self.author_following,),
-             f'/profile/{self.author_following}/follow/'),
+             (self.author,),
+             f'/profile/{self.author}/follow/'),
             ('posts:profile_unfollow',
-             (self.author_following,),
-             f'/profile/{self.author_following}/unfollow/'),
+             (self.author,),
+             f'/profile/{self.author}/unfollow/'),
             ('posts:add_comment',
              (self.post.id,),
              f'/posts/{self.post.id}/comment/'
@@ -111,15 +110,6 @@ class PostURLTests(TestCase):
                         reverse('posts:profile', args=args)
                     )
                 elif name == 'posts:profile_unfollow':
-                    response = self.author_client.get(
-                        reverse(name, args=args),
-                        follow=True
-                    )
-                    self.assertRedirects(
-                        response,
-                        reverse('posts:profile', args=args)
-                    )
-                    Follow.objects.all().delete()
                     response = self.author_client.get(
                         reverse(name, args=args),
                         follow=True

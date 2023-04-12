@@ -4,7 +4,7 @@
 {% endblock title %}
 {% block main %}
   <div class="container py-5">
-    {% include 'posts/includes/switcher.html' %}
+    {% include 'posts/includes/switcher.html' with follow=True%}
     <h1>Последние обновления избранных авторов</h1><br>   
     {% for post in page_obj %}
       {% include 'posts/includes/post_card.html' %}

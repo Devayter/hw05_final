@@ -6,8 +6,8 @@
 {% endblock title %}
 {% block main %}
   <div class="container py-5">
-    {% include 'posts/includes/switcher.html' %}  
-    {% cache 20 index_page %}
+    {% include 'posts/includes/switcher.html' with index=True %}  
+    {% cache 20 index_page index page_obj.number %}
     <h1>Последние обновления на сайте</h1><br>
     {% for post in page_obj %}
       {% include 'posts/includes/post_card.html' %}
