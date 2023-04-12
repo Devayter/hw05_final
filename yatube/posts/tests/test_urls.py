@@ -3,7 +3,7 @@ from http import HTTPStatus
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from posts.models import Follow, Group, Post, User
+from posts.models import Group, Post, User
 
 
 class PostURLTests(TestCase):
