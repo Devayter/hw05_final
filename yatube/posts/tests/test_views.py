@@ -61,7 +61,7 @@ class PostViewsTests(TestCase):
 
     def check_context(self, response, bool=False):
         '''Функция для использования в тестах для проверки переданных в
-        контексте автора, группу, текст и дату публикации поста.
+        контексте автора, группу, текст, дату публикации поста и изображение.
         '''
         if not bool:
             view_context = response.context['page_obj'][0]

@@ -6,6 +6,7 @@ from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+
 from posts.models import Comment, Follow, Group, Post, User
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
@@ -218,13 +219,9 @@ class PostViewsTests(TestCase):
         self.user_client.get(
             reverse('posts:profile_follow', args=(self.author_following,))
         )
-        # "223 и 224 достаем 2 раза подписку, нужно достать и записать в
-        # переменную, а в ассертах использовать переменную"
-        # разве это не то, что требуется?
-        user = Follow.objects.first().user
-        author = Follow.objects.first().author
-        self.assertEqual(user, self.user)
-        self.assertEqual(author, self.author_following)
+        follow = Follow.objects.first()
+        self.assertEqual(follow.user, self.user)
+        self.assertEqual(follow.author, self.author_following)
         self.assertEqual(
             Follow.objects.all().count(),
             follow_count_before_follow + 1
