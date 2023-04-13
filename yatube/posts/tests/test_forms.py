@@ -204,11 +204,24 @@ class PostViewsTests(TestCase):
         )
         comments_count_before_delete_comment = Comment.objects.count()
         self.user_client.get(
-            reverse('posts:delete_comment', args=(comment.id,)))
+            reverse('posts:delete_comment', args=(comment.id,))
+        )
         self.assertEqual(
             Comment.objects.count(),
             comments_count_before_delete_comment - 1
         )
+
+    def test_post_delete_button_works_correct(self):
+        '''Кнопка удаления поста работает корректно'''
+        post = Post.objects.create(
+            author=self.author,
+            text='Пост для удаления'
+        )
+        posts_count_before_delete = Post.objects.count()
+        self.author_client.get(
+            reverse('posts:post_delete', args=(post.id,))
+        )
+        self.assertEqual(Post.objects.count(), posts_count_before_delete - 1)
 
     def test_follow_for_user_works_correct(self):
         '''Авторизованный пользователь может подписываться на других

@@ -32,5 +32,10 @@ urlpatterns = [
         views.delete_comment,
         name='delete_comment'
     ),
+    path(
+        'posts/<int:post_id>/delete/',
+        views.post_delete,
+        name='post_delete'
+    ),
     path('posts/<int:post_id>/', views.post_detail, name='post_detail'),
 ]

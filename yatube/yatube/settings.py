@@ -18,6 +18,8 @@ CACHES = {
 }
 
 ALLOWED_HOSTS = [
+    'www.pashkaproject.pythonanywhere.com',
+    'pashkaproject.pythonanywhere.com',
     'localhost',
     '127.0.0.1',
     '[::1]',
@@ -29,19 +31,23 @@ POSTS_LIMIT = 10
 
 
 INSTALLED_APPS = [
-    'core.apps.CoreConfig',
-    'posts.apps.PostsConfig',
-    'users.apps.UsersConfig',
-    'about.apps.AboutConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'core.apps.CoreConfig',
+    'posts.apps.PostsConfig',
+    'users.apps.UsersConfig',
+    'about.apps.AboutConfig',
+    'debug_toolbar',
     'sorl.thumbnail',
 ]
 
+INTERNAL_IPS = [
+    '127.0.0.1',
+]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -51,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 

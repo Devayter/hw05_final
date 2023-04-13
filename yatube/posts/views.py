@@ -62,6 +62,17 @@ def index(request):
     return render(request, 'posts/index.html', {'page_obj': page_obj})
 
 
+def group_posts(request, slug):
+    group = get_object_or_404(Group, slug=slug)
+    posts = group.posts.select_related('author').all()
+    page_obj = get_paginator_func(request, posts)
+    context = {
+        'group': group,
+        'page_obj': page_obj,
+    }
+    return render(request, 'posts/group_list.html', context, slug)
+
+
 @login_required
 def post_create(request):
     form = PostForm(
@@ -92,15 +103,11 @@ def post_edit(request, post_id):
     return redirect('posts:post_detail', post.id)
 
 
-def group_posts(request, slug):
-    group = get_object_or_404(Group, slug=slug)
-    posts = group.posts.select_related('author').all()
-    page_obj = get_paginator_func(request, posts)
-    context = {
-        'group': group,
-        'page_obj': page_obj,
-    }
-    return render(request, 'posts/group_list.html', context, slug)
+def post_delete(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+    if request.user == post.author:
+        post.delete()
+    return redirect('posts:profile', request.user.username)
 
 
 def post_detail(request, post_id):
