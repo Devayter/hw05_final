@@ -18,8 +18,6 @@ CACHES = {
 }
 
 ALLOWED_HOSTS = [
-    'www.pashkaproject.pythonanywhere.com',
-    'pashkaproject.pythonanywhere.com',
     'localhost',
     '127.0.0.1',
     '[::1]',
